@@ -10,3 +10,4 @@ rayon = "1.10"
 httparse = "1.8.0"
 clap = { version = "4.5.4", features = ["derive"] }
 tokio = { version = "1.37.0", features = ["net", "rt", "rt-multi-thread", "mio", "io-std", "io-util"] }
+futures = "0.3.30"

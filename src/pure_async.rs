@@ -1,6 +1,6 @@
 use httparse::Request;
 use tokio::{
-    io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader},
+    io::{AsyncReadExt, AsyncWriteExt},
     net::{TcpListener, TcpStream},
     runtime::Runtime,
 };
@@ -30,37 +30,23 @@ async fn async_listen() {
 async fn handle_stream(mut stream: TcpStream) {
     let mut headers = [httparse::EMPTY_HEADER; 8];
     let mut req = httparse::Request::new(&mut headers);
+    let mut bytebuf = [0u8; 1024];
 
-    let buf_reader = BufReader::new(&mut stream);
-
-    let mut lines_reader = buf_reader.lines();
-    let mut lines: Vec<String> = Vec::new();
-
-    while let Some(line) = lines_reader.next_line().await.unwrap() {
-        if line.is_empty() {
+    while stream.read(&mut bytebuf).await.unwrap_or(0) > 0 {
+        let Ok(_) = req.parse(&bytebuf) else {
             break;
-        }
-        lines.push(line);
+        };
+
+        let res = handle_request(req).await;
+        stream.write_all(res.as_bytes()).await.unwrap();
+        stream.flush().await.unwrap();
+
+        headers = [httparse::EMPTY_HEADER; 8];
+        req = httparse::Request::new(&mut headers);
     }
-
-    let request_str: String = lines
-        .iter_mut()
-        .map(|s| {
-            s.push_str("\r\n");
-            s
-        })
-        .flat_map(|s| s.chars())
-        .collect();
-
-    let bytebuf = request_str.into_bytes();
-
-    let _ = req.parse(&bytebuf);
-    let res = handle_request(req).await;
-
-    stream.write_all(res.as_bytes()).await.unwrap();
 }
 
-const BAD_REQUEST: &'static str = "HTTP/1.1 401 BAD REQUEST\r\n\r\n";
+const BAD_REQUEST: &str = "HTTP/1.1 401 BAD REQUEST\r\n\r\n";
 
 async fn handle_request<'a>(req: Request<'a, 'a>) -> String {
     let num_header = match req.headers.iter().find(|&&h| h.name == "Number") {
@@ -83,10 +69,7 @@ async fn handle_request<'a>(req: Request<'a, 'a>) -> String {
         Err(_) => return BAD_REQUEST.to_string(),
     };
 
-    let res = match tokio::task::spawn_blocking(move || is_prime(num))
-        .await
-        .unwrap()
-    {
+    let res = match is_prime(num) {
         Some(t) => match t {
             true => "yes",
             false => "no",

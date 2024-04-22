@@ -1,8 +1,8 @@
 use clap::{Parser, ValueEnum};
 
-pub mod async_based;
 pub mod primes;
-pub mod thread_based;
+pub mod pure_async;
+pub mod thread;
 
 #[derive(Parser, Debug)]
 #[command(version)]
@@ -16,15 +16,18 @@ struct Args {
 enum Mode {
     /// Async with Tokio
     Async,
-    /// OS Thread Pool
-    ThreadPool,
+    /// 1 OS Thread per Connection
+    ThreadPerConn,
+    /// 1 OS Thread per Request
+    ThreadPerReq,
 }
 
 fn main() {
     let args = Args::parse();
 
     match args.mode {
-        Mode::Async => async_based::listen(),
-        Mode::ThreadPool => thread_based::listen(),
+        Mode::Async => pure_async::listen(),
+        Mode::ThreadPerConn => thread::thread_per_conn::listen(),
+        Mode::ThreadPerReq => thread::thread_per_req::listen(),
     }
 }

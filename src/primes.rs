@@ -1,5 +1,3 @@
-use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-
 const PRIME_MAX: usize = 1_000_000;
 const PRIME_CNT: usize = 78498;
 
@@ -44,6 +42,7 @@ const LAST_PRIME: u32 = *{
 };
 const MAX_CHECKABLE: u64 = (LAST_PRIME as u64).pow(2);
 
+/// Does not use rayon for fairness
 pub fn is_prime(k: u64) -> Option<bool> {
     if k > MAX_CHECKABLE {
         None
@@ -58,8 +57,8 @@ pub fn is_prime(k: u64) -> Option<bool> {
             };
         Some(
             PRIMES[..=upper_bound]
-                .par_iter()
-                .find_any(|&&p| k % (p as u64) == 0)
+                .iter()
+                .find(|&&p| k % (p as u64) == 0)
                 .is_none(),
         )
     }
